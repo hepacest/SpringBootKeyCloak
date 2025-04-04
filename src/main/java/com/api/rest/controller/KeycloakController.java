@@ -39,14 +39,14 @@ public class KeycloakController {
 
     }
 
-    @PutMapping("/update/{username}")
+    @PutMapping("/update/{userId}")
     public ResponseEntity<?> uddateUser(@PathVariable String userId, @RequestBody UserDto userDto)  {
-       keycloakService.createUser(userDto);
+       keycloakService.updateUser(userId, userDto);
         return ResponseEntity.ok("User updated successfully");
 
     }
 
-    @DeleteMapping("/delete/{username}")
+    @DeleteMapping("/delete/{userId}")
     public ResponseEntity<?> deleteUser(@PathVariable String userId) {
         keycloakService.deleteUser(userId);
         return ResponseEntity.noContent().build();

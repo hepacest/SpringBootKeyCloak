@@ -1,6 +1,6 @@
 package com.api.rest.util;
 
-import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
+import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
@@ -12,8 +12,8 @@ public class KeyCloakProvider {
     private static final String REALM_NAME = "spring-boot-realm-dev";
     private static final String REALM_MASTER = "master";
     private static final String ADMIN_CLI = "admin-cli";
-    private static final String USER_CONSOLE = "admin";
-    private static final String PASSWORD_CONSOLE = "admin";
+    private static final String ADMIN_USERNAME = "admin";
+    private static final String ADMIN_PASSWORD = "admin";
     private static final String CLIENT_SECRET = "xt22qmKwGFIHbOpZpk0yhuwHI9i1S075";
 
     public static RealmResource getRealmResouce() {
@@ -21,22 +21,22 @@ public class KeyCloakProvider {
                 .serverUrl(SERVER_KEYCLOAK_URL)
                 .realm(REALM_MASTER)
                 .clientId(ADMIN_CLI)
-                .username(USER_CONSOLE)
-                .password(PASSWORD_CONSOLE)
-                .clientSecret(CLIENT_SECRET)
+                .username(ADMIN_USERNAME)
+                .password(ADMIN_PASSWORD)
+                /*.clientSecret(CLIENT_SECRET)
                 .resteasyClient(
                         new ResteasyClientBuilderImpl()
                                 .connectionPoolSize(10)
                                 .build()
-                )
+                )*/
+                .grantType(OAuth2Constants.PASSWORD)
                 .build();
 
         return keycloak.realm(REALM_NAME);
     }
 
     public static UsersResource getUserResource() {
-       RealmResource realmResource = getRealmResouce();
-       return realmResource.users();
+        return getRealmResouce().users();
     }
 
 

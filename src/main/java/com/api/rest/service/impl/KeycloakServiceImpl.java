@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -33,7 +34,83 @@ public class KeycloakServiceImpl implements IKeycloakService {
 
     @Override
     public String createUser(@NotNull UserDto userDto) {
-        int status = 0;
+        int status  = 0;
+        UsersResource usersResource = KeyCloakProvider.getUserResource();
+
+        Response response = createNewUser(userDto, usersResource);
+        status = response.getStatus();
+
+        if (status == 201){
+            String path = response.getLocation().getPath();
+            String userId = path.substring(path.lastIndexOf("/") + 1);
+            setPasswordUser(userDto, usersResource, userId);
+
+            return assignRoleToUser(userDto, userId);
+
+        } else if (status == 409) {
+            log.error("User already exists");
+            return "User already exists";
+
+        } else {
+            log.error("Error creating user");
+            return "Error creating user";
+
+        }
+
+    }
+
+    private String assignRoleToUser(UserDto userDto, String userId) {
+
+        RealmResource realmResource = KeyCloakProvider.getRealmResouce();
+        List<RoleRepresentation> roleRepresentations = null;
+
+        if (userDto.roles() == null || userDto.roles().isEmpty()) {
+            roleRepresentations = List.of(realmResource.roles().get("user").toRepresentation());
+        } else {
+            roleRepresentations = realmResource.roles()
+                    .list()
+                    .stream()
+                    .filter(role -> userDto.roles()
+                            .stream()
+                            .anyMatch(roleName -> roleName.equalsIgnoreCase(role.getName())))
+                    .toList();
+        }
+
+        realmResource.users().get(userId)
+                .roles()
+                .realmLevel()
+                .add(roleRepresentations);
+
+
+        return "User created successfully, User ID: " + userId;
+    }
+
+
+
+    private void setPasswordUser(UserDto userDto, UsersResource usersResource, String userId) {
+        CredentialRepresentation credentialRepresentation = new CredentialRepresentation();
+        credentialRepresentation.setTemporary(false);
+        credentialRepresentation.setType(OAuth2Constants.PASSWORD);
+        credentialRepresentation.setValue(userDto.password());
+
+        usersResource.get(userId).resetPassword(credentialRepresentation);
+
+    }
+
+    private Response createNewUser(UserDto userDto,  UsersResource usersResource){
+        UserRepresentation userRepresentation = new UserRepresentation();
+        userRepresentation.setUsername(userDto.username());
+        userRepresentation.setEmail(userDto.email());
+        userRepresentation.setEmailVerified(true); //lo ideal es enviar un email de verificacion
+        userRepresentation.setFirstName(userDto.firstName());
+        userRepresentation.setLastName(userDto.lastName());
+        userRepresentation.setEnabled(true);
+
+        Response response = usersResource.create(userRepresentation);
+        return response;
+    }
+
+    public String createUser2(@NotNull UserDto userDto) {
         UsersResource usersResource = KeyCloakProvider.getUserResource();
 
         UserRepresentation user = new UserRepresentation();
@@ -44,50 +121,43 @@ public class KeycloakServiceImpl implements IKeycloakService {
         user.setLastName(userDto.lastName());
         user.setEnabled(true);
 
+        try {
+            Response response = usersResource.create(user);
+            String body = response.readEntity(String.class);
+            log.error("Response status: {}, body: {}", response.getStatus(), body);
+            response.close();
 
-        Response response = usersResource.create(user);
-        status = response.getStatus();
 
-        if (status == 201) {
-            String path = response.getLocation().getPath();
-            String userId = path.substring(path.lastIndexOf('/') + 1);
+            if (response.getStatus() == 201) {
+                String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
 
-            CredentialRepresentation credential = new CredentialRepresentation();
-            credential.setTemporary(false);
-            credential.setType(OAuth2Constants.PASSWORD);
-            credential.setValue(userDto.password());
-            usersResource.get(userId).resetPassword(credential);
+                // Set password
+                CredentialRepresentation passwordCred = new CredentialRepresentation();
+                passwordCred.setTemporary(false);
+                passwordCred.setType(CredentialRepresentation.PASSWORD);
+                passwordCred.setValue(userDto.password());
 
-            RealmResource realmResource = KeyCloakProvider.getRealmResouce();
-            List<RoleRepresentation> roleRepresentations = null;
-            if (userDto.roles() == null || userDto.roles().isEmpty()) {
-                roleRepresentations = List.of(realmResource.roles().get("user").toRepresentation());
-            } else {
-                roleRepresentations = realmResource.roles()
-                        .list()
-                        .stream()
-                        .filter(role -> userDto.roles()
-                                .stream()
-                                .anyMatch(roleName -> roleName.equalsIgnoreCase(role.getName()))
-                        )
-                        .toList();
+                usersResource.get(userId).resetPassword(passwordCred);
+
+                // Set default role
+                RoleRepresentation userRole = KeyCloakProvider.getRealmResouce()
+                        .roles()
+                        .get("user")
+                        .toRepresentation();
+
+                usersResource.get(userId)
+                        .roles()
+                        .realmLevel()
+                        .add(List.of(userRole));
+
+                return "User created with ID: " + userId;
             }
 
-            realmResource.users()
-                    .get(userId)
-                    .roles()
-                    .realmLevel()
-                    .add(roleRepresentations);
+            throw new RuntimeException("Failed to create user. Status: " + response.getStatus() + " Body: " + body);
 
-            return "User with ID " + user.getId() + " has been added successfully";
-        }else if (status == 409) {
-            log.error("User with username {} already exists", user.getUsername());
-            return "User with username " + user.getUsername() + " already exists";
-        }else{
-            log.error("Failed to create user with username {}", user.getUsername());
-            return "Failed to create user with username " + user.getUsername();
+        } catch (Exception e) {
+            throw new RuntimeException("Error creating user: " + e.getMessage());
         }
-
     }
 
     @Override
