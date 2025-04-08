@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TestController {
 
     @GetMapping ("/hello-1")
-    @PreAuthorize("hasRole('admin_client_role')")
+    @PreAuthorize("hasRole('admin_client_role')") //este es el rol del cliente
     public String helloAdmin () {
         return "Hello Spring Boot with Keycloak - Admin";
     }

@@ -1,5 +1,6 @@
 package com.api.rest.util;
 
+import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -9,7 +10,7 @@ import org.keycloak.admin.client.resource.UsersResource;
 public class KeyCloakProvider {
 
     private static final String SERVER_KEYCLOAK_URL = "http://localhost:8282";
-    private static final String REALM_NAME = "spring-boot-realm-dev";
+    private static final String REALM_NAME = "mhm-corp-bank-dev";
     private static final String REALM_MASTER = "master";
     private static final String ADMIN_CLI = "admin-cli";
     private static final String ADMIN_USERNAME = "admin";
@@ -23,13 +24,13 @@ public class KeyCloakProvider {
                 .clientId(ADMIN_CLI)
                 .username(ADMIN_USERNAME)
                 .password(ADMIN_PASSWORD)
-                /*.clientSecret(CLIENT_SECRET)
+                .clientSecret(CLIENT_SECRET)
                 .resteasyClient(
                         new ResteasyClientBuilderImpl()
                                 .connectionPoolSize(10)
                                 .build()
-                )*/
-                .grantType(OAuth2Constants.PASSWORD)
+                )
+              //  .grantType(OAuth2Constants.PASSWORD)
                 .build();
 
         return keycloak.realm(REALM_NAME);

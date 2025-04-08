@@ -12,7 +12,7 @@ import java.net.URISyntaxException;
 
 @RestController
 @RequestMapping("/keycloak/user")
-@PreAuthorize("hasRole('admin_client_role')")
+@PreAuthorize("hasRole('admin_client_role')") // viene de keycloak
 public class KeycloakController {
 
     private IKeycloakService keycloakService;

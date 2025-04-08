@@ -17,11 +17,14 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 @Service
 @Slf4j
 public class KeycloakServiceImpl implements IKeycloakService {
+
+    private static final String KC_USER_ROLE = "user_realm_role";
+
+
     @Override
     public List<UserRepresentation> findAllUsers() {
         return KeyCloakProvider.getRealmResouce().users().list();
@@ -45,7 +48,8 @@ public class KeycloakServiceImpl implements IKeycloakService {
             String userId = path.substring(path.lastIndexOf("/") + 1);
             setPasswordUser(userDto, usersResource, userId);
 
-            return assignRoleToUser(userDto, userId);
+            assignRoleToUser(userDto, userId);
+            return "User created successfully, User ID: " + userId;
 
         } else if (status == 409) {
             log.error("User already exists");
@@ -59,14 +63,26 @@ public class KeycloakServiceImpl implements IKeycloakService {
 
     }
 
-    private String assignRoleToUser(UserDto userDto, String userId) {
+    private void assignRoleToUser(UserDto userDto, String userId) {
 
         RealmResource realmResource = KeyCloakProvider.getRealmResouce();
         List<RoleRepresentation> roleRepresentations = null;
 
         if (userDto.roles() == null || userDto.roles().isEmpty()) {
-            roleRepresentations = List.of(realmResource.roles().get("user").toRepresentation());
+            roleRepresentations = List.of(realmResource.roles().get(KC_USER_ROLE).toRepresentation());
         } else {
+            List<String> availableRoles = realmResource.roles().list().stream()
+                    .map(RoleRepresentation::getName)
+                    .toList();
+
+            List<String> nonExistentRoles = userDto.roles().stream()
+                    .filter(role -> !availableRoles.contains(role))
+                    .toList();
+
+            if (!nonExistentRoles.isEmpty()) {
+                log.warn("The following roles don't exist in Keycloak: {}", nonExistentRoles);
+            }
+
             roleRepresentations = realmResource.roles()
                     .list()
                     .stream()
@@ -74,6 +90,11 @@ public class KeycloakServiceImpl implements IKeycloakService {
                             .stream()
                             .anyMatch(roleName -> roleName.equalsIgnoreCase(role.getName())))
                     .toList();
+
+            if (roleRepresentations.isEmpty()) {
+                log.warn("No valid roles found. Assigning default role.");
+                roleRepresentations = List.of(realmResource.roles().get(KC_USER_ROLE).toRepresentation());
+            }
         }
 
         realmResource.users().get(userId)
@@ -81,8 +102,6 @@ public class KeycloakServiceImpl implements IKeycloakService {
                 .realmLevel()
                 .add(roleRepresentations);
 
-
-        return "User created successfully, User ID: " + userId;
     }
 
 
